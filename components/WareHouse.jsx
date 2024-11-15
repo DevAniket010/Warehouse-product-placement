@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
 import { gsap } from "gsap";
 
 const initialGridSize = 5; // Define initial grid size
@@ -88,27 +87,28 @@ export default function Warehouse() {
         products: productsLocationMap,
       });
       setPaths(response.data);
-      animatePath(response.data); // Animate the paths after fetching them
+      animatePaths(response.data); // Animate the paths after fetching them
     } catch (error) {
       console.error("Error finding paths:", error.response.data);
     }
   };
 
   // Function to animate the path using GSAP
-  const animatePath = (paths) => {
+  const animatePaths = (paths) => {
     paths.forEach((pathObj) => {
-      const pathElements = pathObj.path.map((p) => `#cell-${p[0]}-${p[1]}`);
-      gsap.to(pathElements.join(", "), {
-        backgroundColor: "red",
-        duration: 1,
-        stagger: 0.2,
-      });
-
-      // Reset color after animation
-      gsap.to(pathElements.join(", "), {
-        backgroundColor: "green",
-        duration: 1,
-        delay: pathObj.path.length * 0.2 + 1, // Delay based on length of path animation.
+      // Highlight each path step with a border or background color
+      pathObj.path.forEach((p, index) => {
+        gsap.to(`#cell-${p[0]}-${p[1]}`, {
+          backgroundColor: "red",
+          duration: 0.5,
+          delay: index * 0.5,
+          onComplete: () => {
+            gsap.to(`#cell-${p[0]}-${p[1]}`, {
+              backgroundColor: "green",
+              duration: 0.5,
+            });
+          },
+        });
       });
     });
   };
@@ -121,7 +121,7 @@ export default function Warehouse() {
       <div className="grid grid-cols-5 gap-1">
         {grid.map((rowArr, rowIndex) =>
           rowArr.map((cellValue, colIndex) => (
-            <motion.div
+            <div
               key={`${rowIndex}-${colIndex}`}
               id={`cell-${rowIndex}-${colIndex}`}
               className={`w-full h-16 flex items-center justify-center border shadow-md ${
@@ -132,8 +132,8 @@ export default function Warehouse() {
                   : "bg-white"
               }`}
             >
-              {cellValue !== "W" ? cellValue : "W"}
-            </motion.div>
+              {cellValue !== "W" ? cellValue : ""}
+            </div>
           ))
         )}
       </div>
