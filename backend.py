@@ -121,6 +121,39 @@ def generate_random_warehouse(size: int) -> List[List[str]]:
     return warehouse_layout
 
 
+# @app.post("/optimize-placement")
+# async def optimize_placement(request: FrequencyRequest):
+#     global warehouse_layout  # Use the global variable for placement
+
+#     # Clear the previously placed products (keeping walls intact)
+#     for row in range(len(warehouse_layout)):
+#         for col in range(len(warehouse_layout[row])):
+#             if warehouse_layout[row][col] != "W":  # Don't clear walls
+#                 warehouse_layout[row][col] = "0"  # Reset to empty space
+
+#     # Sort products by frequency in descending order
+#     sorted_products = sorted(
+#         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
+#     )
+
+#     # Place products in available spaces without overwriting walls
+#     for product_name, _ in sorted_products:
+#         placed = False
+#         for idx in range(len(warehouse_layout) * len(warehouse_layout[0])):
+#             row = idx // len(warehouse_layout)
+#             col = idx % len(warehouse_layout[0])
+
+#             # Check if the space is empty and not a wall before placing the product
+#             if warehouse_layout[row][col] == "0":
+#                 warehouse_layout[row][
+#                     col
+#                 ] = product_name  # Place product based on frequency
+#                 placed = True
+#                 break  # Stop placing after finding an empty spot
+
+#     return {"layout": warehouse_layout}
+
+
 @app.post("/optimize-placement")
 async def optimize_placement(request: FrequencyRequest):
     global warehouse_layout  # Use the global variable for placement
@@ -136,20 +169,24 @@ async def optimize_placement(request: FrequencyRequest):
         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
     )
 
-    # Place products in available spaces without overwriting walls
-    for product_name, _ in sorted_products:
-        placed = False
-        for idx in range(len(warehouse_layout) * len(warehouse_layout[0])):
-            row = idx // len(warehouse_layout)
-            col = idx % len(warehouse_layout[0])
+    # Find available positions (excluding walls)
+    available_positions = [
+        (r, c)
+        for r in range(len(warehouse_layout))
+        for c in range(len(warehouse_layout[0]))
+        if warehouse_layout[r][c] == "0"
+    ]
 
-            # Check if the space is empty and not a wall before placing the product
-            if warehouse_layout[row][col] == "0":
-                warehouse_layout[row][
-                    col
-                ] = product_name  # Place product based on frequency
-                placed = True
-                break  # Stop placing after finding an empty spot
+    # Sort available positions by proximity to (0, 0)
+    available_positions.sort(key=lambda pos: abs(pos[0] - 0) + abs(pos[1] - 0))
+
+    # Place products in available spaces
+    for product_name, _ in sorted_products:
+        if available_positions:
+            pos = available_positions.pop(0)  # Get the closest available position
+            warehouse_layout[pos[0]][pos[1]] = product_name  # Place product
+        else:
+            break  # No more available spaces
 
     return {"layout": warehouse_layout}
 
