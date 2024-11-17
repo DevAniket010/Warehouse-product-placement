@@ -24,7 +24,7 @@ warehouse_layout = []
 class WarehouseRequest(BaseModel):
     layout: List[List[str]]
     start: Tuple[int, int]
-    products: Dict[str, Tuple[int, int]]
+    product: str  # Changed to accept a single product
 
 
 class PathResponse(BaseModel):
@@ -41,10 +41,10 @@ class WarehouseResponse(BaseModel):
 
 
 class AStarPathfinder:
-    def __init__(self, warehouse, start, products):
+    def __init__(self, warehouse, start, product_location):
         self.warehouse = warehouse
         self.start = start
-        self.products = products
+        self.product_location = product_location
 
     def heuristic(self, a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
@@ -91,13 +91,10 @@ class AStarPathfinder:
         path.reverse()
         return path
 
-    def find_optimal_paths(self):
-        paths = {}
-        for product, location in self.products.items():
-            path = self.a_star_search(self.start, location)
-            if path:
-                paths[product] = path
-        return paths
+    def find_optimal_path(self):
+        # Use only one product's location for pathfinding
+        goal = self.product_location
+        return self.a_star_search(self.start, goal)
 
 
 @app.get("/generate-warehouse", response_model=WarehouseResponse)
@@ -128,6 +125,13 @@ def generate_random_warehouse(size: int) -> List[List[str]]:
 async def optimize_placement(request: FrequencyRequest):
     global warehouse_layout  # Use the global variable for placement
 
+    # Clear the previously placed products (keeping walls intact)
+    for row in range(len(warehouse_layout)):
+        for col in range(len(warehouse_layout[row])):
+            if warehouse_layout[row][col] != "W":  # Don't clear walls
+                warehouse_layout[row][col] = "0"  # Reset to empty space
+
+    # Sort products by frequency in descending order
     sorted_products = sorted(
         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
     )
@@ -147,21 +151,60 @@ async def optimize_placement(request: FrequencyRequest):
                 placed = True
                 break  # Stop placing after finding an empty spot
 
-        # If we can't place the product anywhere due to walls blocking all spots,
-        # you might want to handle that case here (e.g., log a warning or similar).
-
     return {"layout": warehouse_layout}
 
 
-@app.post("/find-paths", response_model=List[PathResponse])
+@app.post("/find-paths", response_model=PathResponse)
 async def find_paths(request: WarehouseRequest):
     global warehouse_layout  # Use the global variable for finding paths
 
-    pathfinder = AStarPathfinder(warehouse_layout, request.start, request.products)
-    optimal_paths = pathfinder.find_optimal_paths()
-    return [
-        {"product": product, "path": path} for product, path in optimal_paths.items()
-    ]
+    # Extracting the product's location from the layout.
+    product_location = None
+
+    for row_idx in range(len(warehouse_layout)):
+        for col_idx in range(len(warehouse_layout[row_idx])):
+            if warehouse_layout[row_idx][col_idx] == request.product:
+                product_location = (row_idx, col_idx)
+                break
+
+    if not product_location:
+        return {
+            "product": request.product,
+            "path": [],
+            "weights": [],
+            "total_weight": 0,
+        }  # Product not found
+
+    # Use A* pathfinding to find the optimal path.
+    pathfinder = AStarPathfinder(warehouse_layout, request.start, product_location)
+    optimal_path = pathfinder.find_optimal_path()
+
+    # Calculate the path weights (g_scores)
+    path_weights = []
+    total_weight = 0
+
+    for idx in range(len(optimal_path) - 1):
+        current = optimal_path[idx]
+        next_step = optimal_path[idx + 1]
+
+        # Assuming each move has a weight of 1, but you can customize this based on grid contents
+        # Here, we can check if a path goes through an obstacle, adding higher weight for obstacles.
+        if (
+            warehouse_layout[next_step[0]][next_step[1]] == "obstacle"
+        ):  # Example check for obstacle
+            weight = 5  # Assume a higher cost for obstacles
+        else:
+            weight = 1  # Default cost
+
+        path_weights.append(weight)
+        total_weight += weight
+
+    return {
+        "product": request.product,
+        "path": optimal_path or [],
+        "weights": path_weights,
+        "total_weight": total_weight,
+    }  # Return weights and total weight along with the path
 
 
 # To run the server use `uvicorn filename:app --reload`
