@@ -51,7 +51,8 @@ export default function Warehouse() {
           { name: newProduct, frequency: parseInt(newFrequency, 10) },
         ]);
       }
-
+      setNewProduct(""); // Clear input field
+      setNewFrequency(""); // Clear input field
     }
   };
 
@@ -70,8 +71,6 @@ export default function Warehouse() {
         }
       );
       setGrid(response.data.layout);
-      setNewProduct(""); // Clear input field
-      setNewFrequency(""); // Clear input field
     } catch (error) {
       console.error("Error optimizing placement:", error.response.data);
     }
@@ -117,18 +116,29 @@ export default function Warehouse() {
 
   // Function to animate the path using GSAP
   const animatePaths = (paths) => {
+    const walker = document.createElement("img");
+    walker.src = "/walker.png"; // Replace with the path to your walker image
+    walker.className = "absolute h-8 w-8 z-50"; // Absolute positioning
+    const gridContainer = document.querySelector(".grid"); // Ensure this matches your grid class
+    gridContainer.appendChild(walker);
+
     paths.forEach((pathObj) => {
-      // Highlight each path step with a border or background color
       pathObj.path.forEach((p, index) => {
-        gsap.to(`#cell-${p[0]}-${p[1]}`, {
-          backgroundColor: "red",
-          duration: 0.5,
-          delay: index * 0.5,
+        const cell = document.querySelector(`#cell-${p[0]}-${p[1]}`);
+        if (!cell) return; // Skip if cell doesn't exist
+
+        const { left, top, width, height } = cell.getBoundingClientRect();
+
+        gsap.to(walker, {
+          x: left - gridContainer.getBoundingClientRect().left + width / 2,
+          y: top - gridContainer.getBoundingClientRect().top + height / 2,
+          duration: 0.8,
+          delay: index * 0.8,
           onComplete: () => {
-            gsap.to(`#cell-${p[0]}-${p[1]}`, {
-              backgroundColor: "green",
-              duration: 0.5,
-            });
+            if (index === pathObj.path.length - 1) {
+              // Optionally remove the walker after completing the path
+              walker.remove();
+            }
           },
         });
       });
