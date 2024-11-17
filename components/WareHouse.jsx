@@ -144,13 +144,13 @@ export default function Warehouse() {
       {/* Warehouse Grid */}
       <div className="p-8">
         <p className="text-2xl px-4">Warehouse Layout</p>
-        <div className="grid grid-cols-10 gap-5 p-4">
+        <div className="grid grid-cols-10 gap-3 p-4">
           {grid.map((rowArr, rowIndex) =>
             rowArr.map((cellValue, colIndex) => (
               <button
                 key={`${rowIndex}-${colIndex}`}
                 id={`cell-${rowIndex}-${colIndex}`}
-                className={`relative px-4 py-2 h-12 text-center font-semibold rounded`}
+                className={`relative px-4 py-2 h-12 text-center font-semibold rounded mt-3`}
               >
                 <div
                   className={`absolute inset-0 top-0 flex justify-center items-center z-10 ${
