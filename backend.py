@@ -24,7 +24,7 @@ warehouse_layout = []
 class WarehouseRequest(BaseModel):
     layout: List[List[str]]
     start: Tuple[int, int]
-    product: str  # Changed to accept a single product
+    product: str
 
 
 class PathResponse(BaseModel):
@@ -47,9 +47,11 @@ class AStarPathfinder:
         self.product_location = product_location
 
     def heuristic(self, a, b):
+        """Manhattan distance heuristic for A*."""
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
     def a_star_search(self, start, goal):
+        """Performs A* search to find the optimal path."""
         rows, cols = len(self.warehouse), len(self.warehouse[0])
         open_set = []
         heapq.heappush(open_set, (0, start))
@@ -75,15 +77,18 @@ class AStarPathfinder:
         return None
 
     def get_neighbors(self, pos, rows, cols):
+        """Get valid neighbors for a position."""
         x, y = pos
         neighbors = []
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < rows and 0 <= ny < cols and self.warehouse[nx][ny] != "W":
+            if 0 <= nx < rows and 0 <= ny < cols and self.warehouse[nx][ny] == "p":
+                # Only consider valid 'p' cells (paths)
                 neighbors.append((nx, ny))
         return neighbors
 
     def reconstruct_path(self, came_from, current):
+        """Reconstructs the path from the A* search."""
         path = [current]
         while current in came_from:
             current = came_from[current]
@@ -92,156 +97,102 @@ class AStarPathfinder:
         return path
 
     def find_optimal_path(self):
-        # Use only one product's location for pathfinding
+        """Finds the optimal path to the product."""
         goal = self.product_location
         return self.a_star_search(self.start, goal)
 
 
 @app.get("/generate-warehouse", response_model=WarehouseResponse)
 async def generate_warehouse(size: int = 5):
-    """Generates a random warehouse layout with walls."""
+    """Generates a random warehouse layout with paths and walls."""
     global warehouse_layout  # Use the global variable to store the layout
     warehouse_layout = generate_random_warehouse(size)
     return {"layout": warehouse_layout}
 
 
 def generate_random_warehouse(size: int) -> List[List[str]]:
-    """Generates a random warehouse layout with walls."""
-    warehouse_layout = []
+    """Generates a random warehouse layout with paths and walls."""
+    warehouse = [["p" for _ in range(size)] for _ in range(size)]
 
-    for _ in range(size):
-        row = []
-        for _ in range(size):
-            if random.random() < 0.3:  # Adjust density of walls here (30% chance)
-                row.append("W")  # Wall
-            else:
-                row.append("0")  # Empty space
-        warehouse_layout.append(row)
+    # Place containers with paths around them
+    for i in range(0, size, 2):
+        for j in range(0, size, 2):
+            warehouse[i][j] = "c"
 
-    return warehouse_layout
+    # Randomly add walls to paths
+    wall_probability = 0.1  # Adjust wall density
+    for i in range(size):
+        for j in range(size):
+            if warehouse[i][j] == "p" and random.random() < wall_probability:
+                warehouse[i][j] = "w"
 
-
-# @app.post("/optimize-placement")
-# async def optimize_placement(request: FrequencyRequest):
-#     global warehouse_layout  # Use the global variable for placement
-
-#     # Clear the previously placed products (keeping walls intact)
-#     for row in range(len(warehouse_layout)):
-#         for col in range(len(warehouse_layout[row])):
-#             if warehouse_layout[row][col] != "W":  # Don't clear walls
-#                 warehouse_layout[row][col] = "0"  # Reset to empty space
-
-#     # Sort products by frequency in descending order
-#     sorted_products = sorted(
-#         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
-#     )
-
-#     # Place products in available spaces without overwriting walls
-#     for product_name, _ in sorted_products:
-#         placed = False
-#         for idx in range(len(warehouse_layout) * len(warehouse_layout[0])):
-#             row = idx // len(warehouse_layout)
-#             col = idx % len(warehouse_layout[0])
-
-#             # Check if the space is empty and not a wall before placing the product
-#             if warehouse_layout[row][col] == "0":
-#                 warehouse_layout[row][
-#                     col
-#                 ] = product_name  # Place product based on frequency
-#                 placed = True
-#                 break  # Stop placing after finding an empty spot
-
-#     return {"layout": warehouse_layout}
+    return warehouse
 
 
 @app.post("/optimize-placement")
 async def optimize_placement(request: FrequencyRequest):
-    global warehouse_layout  # Use the global variable for placement
+    """
+    Optimizes product placement based on frequency.
+    Starts from (0, 0) and places all products in the nearest available container cells.
+    Walls and already placed products are not overwritten.
+    """
+    global warehouse_layout
 
-    # Clear the previously placed products (keeping walls intact)
-    for row in range(len(warehouse_layout)):
-        for col in range(len(warehouse_layout[row])):
-            if warehouse_layout[row][col] != "W":  # Don't clear walls
-                warehouse_layout[row][col] = "0"  # Reset to empty space
+    # Step 1: Clear previously placed products, but keep walls intact
+    for r in range(len(warehouse_layout)):
+        for c in range(len(warehouse_layout[0])):
+            if warehouse_layout[r][c] not in {"p", "w"}:
+                warehouse_layout[r][c] = "c"  # Reset to container space
 
-    # Sort products by frequency in descending order
+    # Step 2: Collect container positions (starting from (0,0) row-major)
+    container_positions = []
+    for r in range(len(warehouse_layout)):
+        for c in range(len(warehouse_layout[0])):
+            if warehouse_layout[r][c] == "c":  # Found an available container space
+                container_positions.append((r, c))
+
+    # Step 3: Sort products by frequency
     sorted_products = sorted(
         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
     )
 
-    # Find available positions (excluding walls)
-    available_positions = [
-        (r, c)
-        for r in range(len(warehouse_layout))
-        for c in range(len(warehouse_layout[0]))
-        if warehouse_layout[r][c] == "0"
-    ]
-
-    # Sort available positions by proximity to (0, 0)
-    available_positions.sort(key=lambda pos: abs(pos[0] - 0) + abs(pos[1] - 0))
-
-    # Place products in available spaces
+    # Step 4: Assign products to containers (nearest available cell)
     for product_name, _ in sorted_products:
-        if available_positions:
-            pos = available_positions.pop(0)  # Get the closest available position
-            warehouse_layout[pos[0]][pos[1]] = product_name  # Place product
-        else:
-            break  # No more available spaces
+        if container_positions:
+            # Take the nearest available position from the list (which is row-major order)
+            pos = container_positions.pop(0)  # Pop the first position
+            warehouse_layout[pos[0]][pos[1]] = product_name
 
     return {"layout": warehouse_layout}
 
 
 @app.post("/find-paths", response_model=PathResponse)
 async def find_paths(request: WarehouseRequest):
-    global warehouse_layout  # Use the global variable for finding paths
+    """Finds the optimal path to a product in the warehouse."""
+    global warehouse_layout
 
-    # Extracting the product's location from the layout.
+    # Find the product's location
     product_location = None
-
-    for row_idx in range(len(warehouse_layout)):
-        for col_idx in range(len(warehouse_layout[row_idx])):
-            if warehouse_layout[row_idx][col_idx] == request.product:
+    for row_idx, row in enumerate(warehouse_layout):
+        for col_idx, cell in enumerate(row):
+            if cell == request.product:
                 product_location = (row_idx, col_idx)
                 break
+        if product_location:
+            break
 
     if not product_location:
-        return {
-            "product": request.product,
-            "path": [],
-            "weights": [],
-            "total_weight": 0,
-        }  # Product not found
+        return {"product": request.product, "path": []}  # Product not found
 
-    # Use A* pathfinding to find the optimal path.
+    # Log start and goal for debugging
+    print(f"Start: {request.start}, Goal: {product_location}")
+
+    # Use A* pathfinding to find the optimal path
     pathfinder = AStarPathfinder(warehouse_layout, request.start, product_location)
     optimal_path = pathfinder.find_optimal_path()
 
-    # Calculate the path weights (g_scores)
-    path_weights = []
-    total_weight = 0
+    if not optimal_path:
+        return {"product": request.product, "path": []}  # No valid path found
 
-    for idx in range(len(optimal_path) - 1):
-        current = optimal_path[idx]
-        next_step = optimal_path[idx + 1]
-
-        # Assuming each move has a weight of 1, but you can customize this based on grid contents
-        # Here, we can check if a path goes through an obstacle, adding higher weight for obstacles.
-        if (
-            warehouse_layout[next_step[0]][next_step[1]] == "obstacle"
-        ):  # Example check for obstacle
-            weight = 5  # Assume a higher cost for obstacles
-        else:
-            weight = 1  # Default cost
-
-        path_weights.append(weight)
-        total_weight += weight
-
-    return {
-        "product": request.product,
-        "path": optimal_path or [],
-        "weights": path_weights,
-        "total_weight": total_weight,
-    }  # Return weights and total weight along with the path
-
-
-# To run the server use `uvicorn filename:app --reload`
+    # Return the optimal path
+    return {"product": request.product, "path": optimal_path}
