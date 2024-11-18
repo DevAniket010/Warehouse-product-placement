@@ -125,6 +125,9 @@ def generate_random_warehouse(size: int) -> List[List[str]]:
     wall_probability = 0.1  # Adjust wall density
     for i in range(size):
         for j in range(size):
+            # Prevent walls at the designated starting point (0, 1)
+            if (i, j) == (1, 1):
+                continue
             if warehouse[i][j] == "p" and random.random() < wall_probability:
                 warehouse[i][j] = "w"
 
