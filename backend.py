@@ -170,7 +170,10 @@ async def optimize_placement(request: FrequencyRequest):
 
 @app.post("/find-paths", response_model=PathResponse)
 async def find_paths(request: WarehouseRequest):
-    """Finds the optimal path to a product in the warehouse."""
+    """
+    Finds the optimal path to a product in the warehouse, starting from (0, 1) or (1, 0).
+    If the provided start point is not valid, the nearest valid point is chosen.
+    """
     global warehouse_layout
 
     # Find the product's location
@@ -186,8 +189,25 @@ async def find_paths(request: WarehouseRequest):
     if not product_location:
         return {"product": request.product, "path": []}  # Product not found
 
+    # Valid starting points
+    valid_start_points = [(0, 1), (1, 0)]
+
+    # Use the requested start if it is valid, otherwise pick the closest valid point
+    start = (
+        request.start
+        if request.start in valid_start_points
+        else min(
+            valid_start_points,
+            key=lambda point: abs(point[0] - request.start[0])
+            + abs(point[1] - request.start[1]),
+        )
+    )
+
+    # Log start and goal for debugging
+    print(f"Start: {start}, Goal: {product_location}")
+
     # Use A* pathfinding to find the optimal path
-    pathfinder = AStarPathfinder(warehouse_layout, request.start, product_location)
+    pathfinder = AStarPathfinder(warehouse_layout, start, product_location)
     optimal_path = pathfinder.find_optimal_path()
 
     if not optimal_path:
