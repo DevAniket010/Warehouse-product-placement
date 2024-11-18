@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import Papa from "papaparse"; // Import PapaParse for CSV parsing
 import { gsap } from "gsap";
 const initialGridSize = 10; // Define initial grid size
 
@@ -54,6 +55,39 @@ export default function Warehouse() {
       setNewProduct(""); // Clear input field
       setNewFrequency(""); // Clear input field
     }
+  };
+
+  const handleBulkUpload = (file) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const newProducts = results.data.map((row) => ({
+          name: row.name,
+          frequency: parseInt(row.frequency, 10),
+        }));
+
+        // Merge uploaded products with existing products
+        const updatedProducts = [...products];
+        newProducts.forEach((newProduct) => {
+          const existingProductIndex = updatedProducts.findIndex(
+            (product) => product.name === newProduct.name
+          );
+
+          if (existingProductIndex !== -1) {
+            updatedProducts[existingProductIndex].frequency +=
+              newProduct.frequency;
+          } else {
+            updatedProducts.push(newProduct);
+          }
+        });
+
+        setProducts(updatedProducts);
+      },
+      error: (error) => {
+        console.error("Error parsing the CSV file:", error);
+      },
+    });
   };
 
   const optimizePlacement = async () => {
@@ -231,6 +265,20 @@ export default function Warehouse() {
               >
                 Add Product
               </button>
+            </div>
+
+            {/* Bulk Upload Section */}
+            <div className="mt-6">
+              <label htmlFor="csvUpload" className="block font-semibold">
+                Upload CSV for Bulk Products
+              </label>
+              <input
+                type="file"
+                id="csvUpload"
+                accept=".csv"
+                onChange={(e) => handleBulkUpload(e.target.files[0])}
+                className="mt-2"
+              />
             </div>
 
             {/* Display Added Products */}
