@@ -133,8 +133,7 @@ def generate_random_warehouse(size: int) -> List[List[str]]:
 async def optimize_placement(request: FrequencyRequest):
     """
     Optimizes product placement based on frequency.
-    Starts from (0, 0) and places all products in the nearest available container cells.
-    Walls and already placed products are not overwritten.
+    Starts from (0, 0) and places all products in the nearest available container cell.
     """
     global warehouse_layout
 
@@ -144,23 +143,24 @@ async def optimize_placement(request: FrequencyRequest):
             if warehouse_layout[r][c] not in {"p", "w"}:
                 warehouse_layout[r][c] = "c"  # Reset to container space
 
-    # Step 2: Collect container positions (starting from (0,0) row-major)
-    container_positions = []
-    for r in range(len(warehouse_layout)):
-        for c in range(len(warehouse_layout[0])):
-            if warehouse_layout[r][c] == "c":  # Found an available container space
-                container_positions.append((r, c))
+    # Step 2: Collect container positions (sorted by Manhattan distance from (0,0))
+    container_positions = [
+        (r, c)
+        for r in range(len(warehouse_layout))
+        for c in range(len(warehouse_layout[0]))
+        if warehouse_layout[r][c] == "c"
+    ]
+    container_positions.sort(key=lambda pos: abs(pos[0]) + abs(pos[1]))
 
     # Step 3: Sort products by frequency
     sorted_products = sorted(
         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
     )
 
-    # Step 4: Assign products to containers (nearest available cell)
+    # Step 4: Assign products to containers
     for product_name, _ in sorted_products:
         if container_positions:
-            # Take the nearest available position from the list (which is row-major order)
-            pos = container_positions.pop(0)  # Pop the first position
+            pos = container_positions.pop(0)  # Take the nearest available container
             warehouse_layout[pos[0]][pos[1]] = product_name
 
     return {"layout": warehouse_layout}
@@ -183,9 +183,6 @@ async def find_paths(request: WarehouseRequest):
 
     if not product_location:
         return {"product": request.product, "path": []}  # Product not found
-
-    # Log start and goal for debugging
-    print(f"Start: {request.start}, Goal: {product_location}")
 
     # Use A* pathfinding to find the optimal path
     pathfinder = AStarPathfinder(warehouse_layout, request.start, product_location)
