@@ -61,7 +61,9 @@ class AStarPathfinder:
 
         while open_set:
             _, current = heapq.heappop(open_set)
-            if current == goal:
+
+            # Check if current cell is adjacent to the goal and is a path ('p')
+            if current != goal and current in self.get_neighbors(goal, rows, cols):
                 return self.reconstruct_path(came_from, current)
 
             for neighbor in self.get_neighbors(current, rows, cols):
