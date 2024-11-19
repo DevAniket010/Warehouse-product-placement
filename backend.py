@@ -7,8 +7,7 @@ import random
 
 app = FastAPI()
 
-# CORS setup
-origins = ["http://localhost:3000"]  # Adjust as needed
+origins = ["http://localhost:3000"]  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -17,7 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global variable to store the warehouse layout
 warehouse_layout = []
 
 
@@ -62,7 +60,6 @@ class AStarPathfinder:
         while open_set:
             _, current = heapq.heappop(open_set)
 
-            # Check if current cell is adjacent to the goal and is a path ('p')
             if current != goal and current in self.get_neighbors(goal, rows, cols):
                 return self.reconstruct_path(came_from, current)
 
@@ -107,7 +104,7 @@ class AStarPathfinder:
 @app.get("/generate-warehouse", response_model=WarehouseResponse)
 async def generate_warehouse(size: int = 5):
     """Generates a random warehouse layout with paths and walls."""
-    global warehouse_layout  # Use the global variable to store the layout
+    global warehouse_layout  
     warehouse_layout = generate_random_warehouse(size)
     return {"layout": warehouse_layout}
 
@@ -122,10 +119,9 @@ def generate_random_warehouse(size: int) -> List[List[str]]:
             warehouse[i][j] = "c"
 
     # Randomly add walls to paths
-    wall_probability = 0.1  # Adjust wall density
+    wall_probability = 0.1  
     for i in range(size):
         for j in range(size):
-            # Prevent walls at the designated starting point (0, 1)
             if (i, j) == (1, 1):
                 continue
             if warehouse[i][j] == "p" and random.random() < wall_probability:
@@ -142,13 +138,12 @@ async def optimize_placement(request: FrequencyRequest):
     """
     global warehouse_layout
 
-    # Step 1: Clear previously placed products, but keep walls intact
+    # reset the previously placed items
     for r in range(len(warehouse_layout)):
         for c in range(len(warehouse_layout[0])):
             if warehouse_layout[r][c] not in {"p", "w"}:
-                warehouse_layout[r][c] = "c"  # Reset to container space
+                warehouse_layout[r][c] = "c"  
 
-    # Step 2: Collect container positions (sorted by Manhattan distance from (0,0))
     container_positions = [
         (r, c)
         for r in range(len(warehouse_layout))
@@ -157,15 +152,13 @@ async def optimize_placement(request: FrequencyRequest):
     ]
     container_positions.sort(key=lambda pos: abs(pos[0]) + abs(pos[1]))
 
-    # Step 3: Sort products by frequency
     sorted_products = sorted(
         request.product_frequencies.items(), key=lambda x: x[1], reverse=True
     )
 
-    # Step 4: Assign products to containers
     for product_name, _ in sorted_products:
         if container_positions:
-            pos = container_positions.pop(0)  # Take the nearest available container
+            pos = container_positions.pop(0)  
             warehouse_layout[pos[0]][pos[1]] = product_name
 
     return {"layout": warehouse_layout}
@@ -179,7 +172,6 @@ async def find_paths(request: WarehouseRequest):
     """
     global warehouse_layout
 
-    # Find the product's location
     product_location = None
     for row_idx, row in enumerate(warehouse_layout):
         for col_idx, cell in enumerate(row):
@@ -190,12 +182,11 @@ async def find_paths(request: WarehouseRequest):
             break
 
     if not product_location:
-        return {"product": request.product, "path": []}  # Product not found
+        return {"product": request.product, "path": []}  
 
     # Valid starting points
     valid_start_points = [(0, 1), (1, 0)]
 
-    # Use the requested start if it is valid, otherwise pick the closest valid point
     start = (
         request.start
         if request.start in valid_start_points
@@ -206,15 +197,12 @@ async def find_paths(request: WarehouseRequest):
         )
     )
 
-    # Log start and goal for debugging
     print(f"Start: {start}, Goal: {product_location}")
 
-    # Use A* pathfinding to find the optimal path
     pathfinder = AStarPathfinder(warehouse_layout, start, product_location)
     optimal_path = pathfinder.find_optimal_path()
 
     if not optimal_path:
-        return {"product": request.product, "path": []}  # No valid path found
+        return {"product": request.product, "path": []}  
 
-    # Return the optimal path
     return {"product": request.product, "path": optimal_path}

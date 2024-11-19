@@ -114,7 +114,7 @@ export default function Warehouse() {
       const response = await axios.post("http://localhost:8000/find-paths", {
         layout: grid,
         product: selectedProduct,
-        start: [0, 1], // Default starting point
+        start: [0, 1], 
       });
 
       setPaths(response.data.path || []);
@@ -138,8 +138,7 @@ export default function Warehouse() {
 
       const { left, top, width, height } = cell.getBoundingClientRect();
 
-      // Determine the direction of movement based on consecutive path coordinates
-      let direction = 0; // Default direction (no rotation)
+      let direction = 0;
       if (index > 0) {
         const prevCell = paths[index - 1];
         if (p[0] < prevCell[0]) direction = -180; // Moving up
@@ -151,7 +150,7 @@ export default function Warehouse() {
       gsap.to(walker, {
         x: left - gridContainer.getBoundingClientRect().left + width / 2,
         y: top - gridContainer.getBoundingClientRect().top + height / 2,
-        rotation: direction, // Apply rotation based on direction
+        rotation: direction,
         duration: 0.8,
         delay: index * 0.8,
         onComplete: () => {
@@ -170,10 +169,9 @@ export default function Warehouse() {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
 
-    // Clear any previous drawings
     context.clearRect(0, 0, canvas.width, canvas.height);
 
-    context.strokeStyle = "red"; // Set path color to red
+    context.strokeStyle = "red"; 
     context.lineWidth = 5;
     context.beginPath();
 
