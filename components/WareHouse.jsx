@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import Papa from "papaparse"; // Import PapaParse for CSV parsing
+import Papa from "papaparse";
 import { gsap } from "gsap";
 
-const initialGridSize = 11; // Define initial grid size
+const initialGridSize = 11;
 
 export default function Warehouse() {
   const [gridSize] = useState(initialGridSize);
@@ -14,9 +14,8 @@ export default function Warehouse() {
   const [newProduct, setNewProduct] = useState("");
   const [newFrequency, setNewFrequency] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
-  const canvasRef = useRef(null); // Ref for the canvas
+  const canvasRef = useRef(null);
 
-  // Fetch initial warehouse layout on component mount
   useEffect(() => {
     const fetchWarehouseLayout = async () => {
       try {
@@ -66,7 +65,6 @@ export default function Warehouse() {
           frequency: parseInt(row.frequency, 10),
         }));
 
-        // Merge uploaded products with existing products
         const updatedProducts = [...products];
         newProducts.forEach((newProduct) => {
           const existingProductIndex = updatedProducts.findIndex(
@@ -100,7 +98,7 @@ export default function Warehouse() {
         "http://localhost:8000/optimize-placement",
         { product_frequencies: productFrequencies }
       );
-      setGrid(response.data.layout); // Updated layout with products optimally placed on `c` cells
+      setGrid(response.data.layout);
     } catch (error) {
       console.log("Error optimizing placement:", error);
     }
@@ -167,7 +165,6 @@ export default function Warehouse() {
     });
   };
 
-
   const drawPath = (path) => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -198,18 +195,68 @@ export default function Warehouse() {
     context.stroke();
   };
 
+  // const drawPath = (path) => {
+  //   if (!canvasRef.current) return;
+
+  //   const canvas = canvasRef.current;
+  //   const context = canvas.getContext("2d");
+
+  //   // Clear previous drawings
+  //   context.clearRect(0, 0, canvas.width, canvas.height);
+
+  //   // Validate path data
+  //   if (!Array.isArray(path) || path.length === 0) {
+  //     console.warn("Invalid or empty path data.");
+  //     return;
+  //   }
+
+  //   // Match canvas size with grid container
+  //   const gridContainer = document.querySelector(".grid");
+  //   if (gridContainer) {
+  //     canvas.width = gridContainer.offsetWidth;
+  //     canvas.height = gridContainer.offsetHeight;
+  //   }
+
+  //   context.strokeStyle = "red"; // Set path color
+  //   context.lineWidth = 5;
+  //   context.beginPath();
+
+  //   path.forEach(([row, col], index) => {
+  //     const cell = document.querySelector(`#cell-${row}-${col}`);
+  //     if (cell) {
+  //       const { left, top, width, height } = cell.getBoundingClientRect();
+  //       const gridBounds = gridContainer.getBoundingClientRect();
+
+  //       const offsetX = left - gridBounds.left + width / 2;
+  //       const offsetY = top - gridBounds.top + height / 2;
+
+  //       if (index === 0) {
+  //         // Start at the first point
+  //         context.moveTo(offsetX, offsetY);
+  //       } else {
+  //         // Draw line to the next point
+  //         context.lineTo(offsetX, offsetY);
+  //       }
+  //     } else {
+  //       console.warn(`Cell not found for coordinates (${row}, ${col})`);
+  //     }
+  //   });
+
+  //   context.stroke();
+  // };
+
   return (
     <div className="bg-gray-200">
       <h1 className="text-4xl font-bold mb-6 text-blue-800 bg-white p-8">
         Warehouse Optimizer
       </h1>
-      
+
       <div className="p-8">
         <p className="text-2xl px-4">Warehouse Layout</p>
         <div className="grid grid-cols-11 gap-1 p-4 relative">
           <canvas
             ref={canvasRef}
-            className="absolute top-0 left-0 pointer-events-none z-50 w-full h-full" // Adjust based on your grid container size
+            className="absolute top-0 left-0 pointer-events-none z-50 w-full h-full"
             width={1841}
             height={572}
           ></canvas>
@@ -258,25 +305,26 @@ export default function Warehouse() {
           )}
         </div>
 
-        <div className="flex mt-16 gap-8">
-          <div className="flex-1 bg-white p-8 rounded-lg">
-            <h2 className="text-2xl font-semibold text-blue-800">
+        <div className="flex flex-col lg:flex-row mt-16 gap-8">
+          {/* Input Product Frequencies */}
+          <section className="flex-1 bg-white p-8 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold text-blue-800 mb-4">
               Input Product Frequencies
             </h2>
-            <div className="flex items-center my-4">
+            <div className="flex items-center mb-6">
               <input
                 type="text"
                 placeholder="Product Name"
                 value={newProduct}
                 onChange={(e) => setNewProduct(e.target.value)}
-                className="border p-2 mr-2 rounded-lg"
+                className="border p-2 mr-2 rounded-lg flex-1"
               />
               <input
                 type="number"
                 placeholder="Frequency"
                 value={newFrequency}
                 onChange={(e) => setNewFrequency(e.target.value)}
-                className="border p-2 rounded-lg"
+                className="border p-2 rounded-lg flex-1"
               />
               <button
                 className="ml-2 bg-blue-500 text-white p-2 rounded-lg shadow hover:bg-blue-600 transition"
@@ -286,9 +334,9 @@ export default function Warehouse() {
               </button>
             </div>
 
-            {/* Bulk Upload Section */}
-            <div className="mt-6">
-              <label htmlFor="csvUpload" className="block font-semibold">
+            {/* Bulk Upload */}
+            <div className="mb-6">
+              <label htmlFor="csvUpload" className="block font-semibold mb-2">
                 Upload CSV for Bulk Products
               </label>
               <input
@@ -296,73 +344,78 @@ export default function Warehouse() {
                 id="csvUpload"
                 accept=".csv"
                 onChange={(e) => handleBulkUpload(e.target.files[0])}
-                className="mt-2"
+                className="border p-2 rounded-lg w-full"
               />
             </div>
 
             {/* Display Added Products */}
             {products.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-xl font-semibold text-blue-800">
+              <div>
+                <h3 className="text-xl font-semibold text-blue-800 mb-4">
                   Added Products
                 </h3>
-                {products.map((product, index) => (
-                  <div key={index}>
-                    {product.name} - {product.frequency}
-                  </div>
-                ))}
+                <table className="w-full border-collapse border border-gray-300 text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 p-2">Product</th>
+                      <th className="border border-gray-300 p-2">Frequency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((product, index) => (
+                      <tr
+                        key={index}
+                        className={`${
+                          index % 2 === 0 ? "bg-gray-100" : "bg-white"
+                        }`}
+                      >
+                        <td className="border border-gray-300 p-2">
+                          {product.name}
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          {product.frequency}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
             <button
-              className="mt-4 bg-green-500 text-white p-2 rounded-lg shadow hover:bg-green-600 transition"
+              className="mt-4 bg-green-500 text-white p-2 rounded-lg shadow hover:bg-green-600 transition w-full"
               onClick={optimizePlacement}
             >
               Optimize Placement
             </button>
-          </div>
+          </section>
 
-          <div className="flex-1 bg-white p-8 rounded-lg h-fit pb-12  ">
-            <h2 className="text-2xl font-semibold text-blue-800">
+          {/* Path Finder */}
+          <section className="flex-1 bg-white p-8 rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold text-blue-800 mb-4">
               Select Product to Find Path
             </h2>
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              className="border p-2 rounded-lg"
-            >
-              <option value="">Select a product</option>
-              {products.map((product, index) => (
-                <option key={index} value={product.name}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              className="mt-4 ml-4 bg-blue-500 text-white p-2 rounded-lg shadow hover:bg-blue-600 transition"
-              onClick={findPaths}
-            >
-              Find Optimal Paths
-            </button>
-
-            {/* <div className="mt-6">
-              {paths.map((pathObj, index) => (
-                <div key={index} className="mb-6">
-                  <h3 className="text-2xl font-semibold text-blue-700">
-                    {pathObj.product} Path
-                  </h3>
-                  <div className="flex flex-wrap">
-                    {pathObj.path.map((p, pathIndex) => (
-                      <div key={pathIndex} className="p-2 border m-1">
-                        ({p[0]}, {p[1]})
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div> */}
-          </div>
+            <div className="flex items-center mb-6">
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="border p-2 rounded-lg flex-1"
+              >
+                <option value="">Select a product</option>
+                {products.map((product, index) => (
+                  <option key={index} value={product.name}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="ml-4 bg-blue-500 text-white p-2 rounded-lg shadow hover:bg-blue-600 transition"
+                onClick={findPaths}
+              >
+                Find Optimal Paths
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </div>
