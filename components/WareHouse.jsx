@@ -20,7 +20,7 @@ export default function Warehouse() {
     const fetchWarehouseLayout = async () => {
       try {
         const response = await axios.get(
-          `http://localhost:8000/generate-warehouse?size=${gridSize}`
+          `https://warehouse-product-placement.onrender.com/generate-warehouse?size=${gridSize}`
         );
         setGrid(response.data.layout);
       } catch (error) {
@@ -95,7 +95,7 @@ export default function Warehouse() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/optimize-placement",
+        "https://warehouse-product-placement.onrender.com/optimize-placement",
         { product_frequencies: productFrequencies }
       );
       setGrid(response.data.layout);
@@ -111,7 +111,7 @@ export default function Warehouse() {
     }
 
     try {
-      const response = await axios.post("http://localhost:8000/find-paths", {
+      const response = await axios.post("https://warehouse-product-placement.onrender.com/find-paths", {
         layout: grid,
         product: selectedProduct,
         start: [0, 1], 
