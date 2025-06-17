@@ -7,7 +7,8 @@ import random
 
 app = FastAPI()
 
-origins = ["https://warehouse-product-placement.vercel.app/"]  
+origins = ["https://warehouse-product-placement.vercel.app/",
+           "https://warehouse-product-placement.vercel.app"]  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
